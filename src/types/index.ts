@@ -12,6 +12,7 @@ export interface IAppData {
 	cart: string[];
 	preview: string | null;
 	order: IOrder | null;
+    formErrors: FormErrors;
 }
 
 export interface IPaymentForm {
