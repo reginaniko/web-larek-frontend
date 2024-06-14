@@ -1,5 +1,5 @@
 export interface IProductItem {
-	_id: string;
+	id: string;
 	description?: string;
 	image?: string;
 	title: string;
@@ -36,3 +36,7 @@ export interface IOrderResult {
 }
 
 export type FormErrors = Partial<Record<keyof IOrder, string>>;
+
+export interface IOrderSuccess {
+	orderTotal: number;
+}
