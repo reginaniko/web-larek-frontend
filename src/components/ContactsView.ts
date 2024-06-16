@@ -8,14 +8,14 @@ export class ContactsView extends Form<IContactsForm> {
 
 	constructor(container: HTMLFormElement, events: IEvents) {
 		super(container, events);
-
 		this._email = container.elements.namedItem('email') as HTMLInputElement;
 		this._phone = container.elements.namedItem('phone') as HTMLInputElement;
+	}
 
-		this._submitButton.addEventListener('click', () => {
-			events.emit('order: post');
-			(container.elements.namedItem('email') as HTMLInputElement).value = '';
-			(container.elements.namedItem('phone') as HTMLInputElement).value = '';
-		});
+	clearForm() {
+		this._email.value = '';
+		this._phone.value = '';
+		this.isValid = false;
+		this.errors = '';
 	}
 }

@@ -7,12 +7,8 @@ export interface IProductItem {
 	price: number;
 }
 
-export interface IAppData {
+export interface IAppModelData {
 	gallery: IProductItem[];
-	cart: string[];
-	preview: string | null;
-	order: IOrder | null;
-    formErrors: FormErrors;
 }
 
 export interface IPaymentForm {
@@ -24,6 +20,9 @@ export interface IContactsForm {
 	email: string;
 	phone: string;
 }
+
+export interface IOrderForm extends IPaymentForm, IContactsForm{}
+
 
 export interface IOrder extends IPaymentForm, IContactsForm {
 	items: string[];

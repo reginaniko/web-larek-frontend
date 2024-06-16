@@ -3,7 +3,12 @@ import { IProductItem } from "../types";
 import { IEvents } from './base/events';
 import { Component } from './base/Component';
 
-export class ItemView extends Component<IProductItem> {
+export interface IProductItemView extends IProductItem {
+    index: string;
+    isInCart?: boolean;
+}
+
+export class ItemView extends Component<IProductItemView> {
     protected _id: string;
     protected _title: HTMLElement;
     protected _price: HTMLElement;
@@ -14,6 +19,7 @@ export class ItemView extends Component<IProductItem> {
     protected _description: HTMLElement;
     protected viewType: 'compact' | 'detail' | 'gallery';
     protected events: IEvents;
+    protected isInCartItem: boolean = false;
 
     constructor(container: HTMLElement, events: IEvents, viewType: 'compact' | 'detail' | 'gallery') {
         super(container);
@@ -39,8 +45,9 @@ export class ItemView extends Component<IProductItem> {
                 this._image = ensureElement<HTMLImageElement>(`.card__image`, this.container);
                 this._description = ensureElement<HTMLElement>(`.card__text`, this.container);
                 this._button = ensureElement<HTMLButtonElement>(`.card__button`, this.container);
-                this._button.addEventListener('click',  () => this.onClick('item: addToCart'));
-                
+                this._button.addEventListener('click', () => {
+                    this.onClick('preview: changed'); 
+                });
                 break;
             case 'gallery':
                 this._title = ensureElement<HTMLElement>(`.card__title`, this.container);
@@ -104,7 +111,15 @@ export class ItemView extends Component<IProductItem> {
         this.setText(this._index, value);
     }
 
-    getContainer(): HTMLElement {
-        return this.container;
+    set isInCart(value: boolean){
+        this.isInCartItem = value;
+        if (this.isInCartItem) {
+            this.disableButton();
+        }
+    }
+
+    disableButton(){
+        this.setDisabled(this._button, true);
+        this.setText(this._button, 'Уже в корзине');
     }
 }

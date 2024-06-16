@@ -5,26 +5,23 @@ import { IEvents } from './base/events';
 export class OrderView extends Form<IPaymentForm> {
 	private _cash?: HTMLButtonElement;
 	private _card?: HTMLButtonElement;
-	private _address: HTMLInputElement;
 	private _button: HTMLButtonElement;
+	private _address: HTMLInputElement;
 
 	constructor(container: HTMLFormElement, events: IEvents) {
 		super(container, events);
-
 		this._cash = container.elements.namedItem('cash') as HTMLButtonElement;
 		this._card = container.elements.namedItem('card') as HTMLButtonElement;
+		this._address = container.elements.namedItem('address') as HTMLInputElement;
 		this._button = container.querySelector(
 			'.order__button'
 		) as HTMLButtonElement;
-		this._address = container.elements.namedItem('address') as HTMLInputElement;
 
 		this.attachEventListeners(events);
 	}
 
 	private attachEventListeners(events: IEvents): void {
-		this._button.addEventListener('click', () =>
-			this.handleButtonClick(events)
-		);
+		this._button.addEventListener('click', () => events.emit('contacts: open'));
 
 		this._cash?.addEventListener('click', () =>
 			this.handlePaymentSelection('upon receipt')
@@ -32,13 +29,6 @@ export class OrderView extends Form<IPaymentForm> {
 		this._card?.addEventListener('click', () =>
 			this.handlePaymentSelection('online')
 		);
-	}
-
-	private handleButtonClick(events: IEvents): void {
-		events.emit('contacts: open');
-		this.toggleClass(this._card!, 'button_alt-active', false);
-		this.toggleClass(this._cash!, 'button_alt-active', false);
-		this._address && (this._address.value = '');
 	}
 
 	private handlePaymentSelection(paymentType: 'upon receipt' | 'online'): void {
@@ -50,5 +40,15 @@ export class OrderView extends Form<IPaymentForm> {
 			this.toggleClass(this._cash!, 'button_alt-active', false);
 		}
 		this.onInputChange('payment', paymentType);
+	}
+
+	clearForm() {
+		if (this._cash && this._card) {
+			this.toggleClass(this._cash, 'button_alt-active', false);
+			this.toggleClass(this._card, 'button_alt-active', false);
+		}
+		this._address.value = '';
+		this.isValid = false;
+		this.errors = '';
 	}
 }

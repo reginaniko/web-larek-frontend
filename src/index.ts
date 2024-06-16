@@ -1,7 +1,7 @@
 import './scss/styles.scss';
 import { Api, ApiListResponse } from './components/base/api';
 import { API_URL, CDN_URL } from './utils/constants';
-import { IProductItem, IOrder } from './types';
+import { IProductItem, IOrder, IOrderForm } from './types';
 import { cloneTemplate, ensureElement } from './utils/utils';
 import { Modal } from './components/base/Modal';
 import { EventEmitter } from './components/base/events';
@@ -45,7 +45,7 @@ api.get('/product/').then((response: ItemListResponse) => {
 });
 
 events.on('items: changed', () => {
-	pageView.gallery = appData.gallery.map((item: IProductItem) => {
+	pageView.gallery = appData.getProducts().map((item: IProductItem) => {
 		const card = new ItemView(
 			cloneTemplate(cardCatalogTemplate),
 			events,
@@ -83,74 +83,55 @@ events.on('preview: changed', (item: IProductItem) => {
 			category: item.category,
 			price: item.price,
 			description: item.description,
+            isInCart: appData.isInCart(item),
 		}),
 	});
-	cardPreview.onClick = () => events.emit('item: toCart', item);
+
+    cardPreview.onClick = () => {
+		events.emit('item: toCart', item);
+	};
 });
 
 //добавляем товар в корзину
 events.on('item: toCart', (item: IProductItem) => {
-	//добавили в модель
 	appData.addToCart(item);
-	// установили счетчик корзины
-	pageView.counter = appData.cart.length;
-	//закрыли модальное окно
 	modal.close();
 });
 
-//событие клика на кнопку корзины
-events.on('cart: open', (item: IProductItem) => {
-	console.log(appData.cart);
-	const cartView = new CartView(cloneTemplate(cartTemplate), events);
 
-	const items = appData.cart.map((item, index) => {
-		const itemCardView = new ItemView(
+//событие клика на кнопку корзины
+events.on('cart: open', () => {
+    modal.render({
+        content: cartView.render({})
+      })
+});
+
+//событие изменения корзины
+events.on('cart: changed', ()=>{
+
+    pageView.counter = appData.getCartLength();
+
+    const items = appData.getCart().map((item, index) => {
+	    const itemCardView = new ItemView(
 			cloneTemplate(cardCartTemplate),
 			events,
 			'compact'
-		);
-		itemCardView.onClick = () => events.emit('item: removeCart', item);
-
-		itemCardView.index = (index + 1).toString();
-		itemCardView.title = item.title;
-		itemCardView.price = item.price;
-		return itemCardView.getContainer();
-	});
+		)
+        itemCardView.onClick = () => events.emit('item: removeCart', item);
+            return itemCardView.render({
+            index: (index + 1).toString(),
+            title: item.title,
+            price: item.price
+        })
+    })
 
 	cartView.items = items;
-	cartView.total = `${appData.getTotalPrice()}`;
-	cartView.isButtonEnabled = items.length;
-
-	modal.render({
-		content: cartView.getContainer(),
-	});
-});
+	cartView.totalPrice = `${appData.getTotalPrice()}`;
+})
 
 //удалить товар из корзины
 events.on('item: removeCart', (item: IProductItem) => {
 	appData.removeFromCart(item.id);
-
-	const items = appData.cart.map((item, index) => {
-		const itemCardView = new ItemView(
-			cloneTemplate(cardCartTemplate),
-			events,
-			'compact'
-		);
-		itemCardView.onClick = () => events.emit('item: removeCart', item);
-
-		itemCardView.index = (index + 1).toString();
-		itemCardView.title = item.title;
-		itemCardView.price = item.price;
-		return itemCardView.getContainer();
-	});
-
-	cartView.items = items;
-	cartView.total = `${appData.getTotalPrice()}`;
-	cartView.isButtonEnabled = items.length;
-
-	modal.render({
-		content: cartView.getContainer(),
-	});
 });
 
 // Блокировка прокрутки страницы при открытом модальном окне
@@ -165,10 +146,11 @@ events.on('modal:close', () => {
 
 //нажатие на кнопку оформить из корзины
 events.on('order: open', () => {
+    const orderForm = appData.getOrder();
 	modal.render({
 		content: order.render({
-			payment: null,
-			address: '',
+			payment: orderForm.payment,
+			address: orderForm.address,
 			isValid: false,
 			errors: [],
 		}),
@@ -177,10 +159,11 @@ events.on('order: open', () => {
 
 // нажатие на кнопку далее (форма оплаты)
 events.on('contacts: open', () => {
+    const orderForm = appData.getOrder();
 	modal.render({
 		content: contacts.render({
-			phone: '',
-			email: '',
+			phone: orderForm.phone,
+			email: orderForm.email,
 			isValid: false,
 			errors: [],
 		}),
@@ -208,35 +191,38 @@ events.on('contactsErrors: change', (errors: Partial<IOrder>) => {
 //ввод данных в одно из полей форм заказа
 events.on(
 	'orderInput: change',
-	(data: { field: keyof IOrder; value: string }) => {
+	(data: { field: keyof IOrderForm; value: string }) => {
 		appData.setOrderField(data.field, data.value);
 	}
 );
 
 //оправить Апи заказа
-events.on('order: post', () => {
-	appData.order.total = +appData.getTotalPrice().split(' ')[0];
-	appData.order.items = appData.cart.map((item) => item.id);
+events.on('contacts: submit', () => {
 
-	api
-		.post('/order', appData.order)
+    api
+		.post('/order', appData.createOrder())
 		.then((res: ApiListResponse<string>) => {
-			appData.cart = [];
-			cartView.items = [];
-			cartView.total = '0 синапсов';
-			appData.order = {
-				items: [],
-				total: null,
+			appData.setCart([]);
+			appData.setOrder({
 				address: '',
 				email: '',
 				phone: '',
 				payment: null,
-			};
-			pageView.counter = 0;
+			});
+            order.clearForm();
+            contacts.clearForm();
 			events.emit('success: open', res);
 		})
 		.catch((err) => {
 			console.error(err);
+            appData.setOrder({
+                address: '',
+                email: '',
+                phone: '',
+                payment: null,
+            });
+            order.clearForm();
+            contacts.clearForm();
 		});
 });
 

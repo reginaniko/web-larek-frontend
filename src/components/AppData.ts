@@ -1,24 +1,22 @@
-import { IProductItem, IAppData, IOrder, FormErrors } from '../types';
+import { IProductItem, IOrder, FormErrors, IAppModelData, IOrderForm } from '../types';
 import { Model } from './base/Model';
-import { ItemData } from './ItemData';
 
-export class AppData extends Model<IAppData> {
-	cart: IProductItem[] = [];
-	gallery: IProductItem[];
-	loading: boolean;
-	order: IOrder = {
+
+export class AppData extends Model<IAppModelData> {
+	protected cart: IProductItem[] = [];
+	protected gallery: IProductItem[];
+	protected loading: boolean;
+	protected order: IOrderForm = {
 		payment: null,
 		address: '',
 		email: '',
-		phone: '',
-		items: [],
-		total: 0,
+		phone: ''
 	};
-	preview: string | null;
-	formErrors: FormErrors = {};
+	protected preview: string | null;
+	protected formErrors: FormErrors = {};
 
 	setGallery(items: IProductItem[]) {
-		this.gallery = items.map((item) => new ItemData(item, this.events));
+		this.gallery = items;
 		this.emitChanges('items: changed', { gallery: this.gallery });
 	}
 
@@ -31,11 +29,28 @@ export class AppData extends Model<IAppData> {
 		return this.gallery;
 	}
 
+  getCart(): IProductItem[] {
+    return this.cart
+  }
+
+  setCart(cart: IProductItem[]) {
+    this.cart = cart;
+    this.emitChanges('cart: changed', { cart: this.cart });
+  }
+
+  getOrder(): IOrderForm {
+		return this.order;
+	}
+
+  setOrder(order: IOrderForm){
+    this.order = order;
+  }
+
 	getCartLength() {
 		return this.cart.length;
 	}
 
-	setOrderField<K extends keyof IOrder>(field: K, value: IOrder[K]) {
+	setOrderField<K extends keyof IOrderForm>(field: K, value: IOrderForm[K]) {
 		if (
 			field === 'payment' &&
 			(value === 'online' || value === 'upon receipt')
@@ -82,21 +97,38 @@ export class AppData extends Model<IAppData> {
 	}
 
 	addToCart(item: IProductItem) {
-		this.cart.push(item);
-		const totalPrice = this.getTotalPrice();
-		const eventData = { totalPrice: totalPrice, unit: 'синапсов' };
-		this.events.emit('cart: totalChanged', eventData);
+    const existingItem = this.cart.some(cartItem => cartItem.id === item.id);
+    if (!existingItem) {
+        this.cart.push(item);
+    }
+    this.events.emit('cart: changed');
 	}
+
+  isInCart(item: IProductItem): boolean {
+    return this.cart.some(cartItem => cartItem.id === item.id);
+  }
 
 	removeFromCart(id: string) {
 		this.cart = this.cart.filter((cartItem) => cartItem.id !== id);
+    this.events.emit('cart: changed');
 	}
 
 	getTotalPrice(): string {
-		let total = 0;
-		for (const item of this.cart) {
-			total += item.price || 0;
-		}
-		return total + ' синапсов';
+    const total = this.cart.reduce((sum, item) => sum + (item.price || 0), 0);
+    return total + ' синапсов';
 	}
+
+  createOrder(): IOrder {
+		const filteredPriceless = this.cart.filter(item => item.price !== null);
+    const items = filteredPriceless.map(item => item.id);
+		const total = this.cart.reduce((sum, item) => sum + (item.price || 0), 0);
+		return {
+			payment: this.order.payment,
+			address: this.order.address,
+			email: this.order.email,
+			phone: this.order.phone,
+			items: items,
+			total: total
+		};
+  }
 }
